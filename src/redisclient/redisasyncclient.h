@@ -84,7 +84,7 @@ public:
             std::function<void(RedisValue)> handler = dummyHandler);
 
     // Subscribe to channel. Handler msgHandler will be called
-    // when someone publish message on channel. Call unsubscribe 
+    // when someone publish message on channel. Call unsubscribe
     // to stop the subscription.
     REDIS_CLIENT_DECL Handle subscribe(const std::string &channelName,
                                        std::function<void(std::vector<char> msg)> msgHandler,
@@ -96,11 +96,13 @@ public:
                                         std::function<void(RedisValue)> handler = &dummyHandler);
 
     // Unsubscribe
-    REDIS_CLIENT_DECL void unsubscribe(const Handle &handle);
+    REDIS_CLIENT_DECL void unsubscribe(const Handle &handle,
+        std::function<void(RedisValue)> handler = &dummyHandler);
+
     REDIS_CLIENT_DECL void punsubscribe(const Handle &handle);
 
     // Subscribe to channel. Handler msgHandler will be called
-    // when someone publish message on channel; it will be 
+    // when someone publish message on channel; it will be
     // unsubscribed after call.
     REDIS_CLIENT_DECL void singleShotSubscribe(
             const std::string &channel,
@@ -129,7 +131,7 @@ private:
 }
 
 #ifdef REDIS_CLIENT_HEADER_ONLY
-#include "impl/redisasyncclient.cpp"
+#include "redisclient/impl/redisasyncclient.cpp"
 #endif
 
 #endif // REDISASYNCCLIENT_REDISCLIENT_H

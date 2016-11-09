@@ -17,7 +17,9 @@
 #include <map>
 #include <functional>
 #include <memory>
+#include <atomic>
 
+#include <mutex>
 #include "../redisparser.h"
 #include "../redisbuffer.h"
 #include "../config.h"
@@ -51,8 +53,8 @@ public:
         std::function<void(std::vector<char> msg)> msgHandler,
         std::function<void(RedisValue)> handler);
 
-    REDIS_CLIENT_DECL void unsubscribe(const std::string &command, 
-        size_t handle_id, const std::string &channel, 
+    REDIS_CLIENT_DECL void unsubscribe(const std::string &command,
+        size_t handle_id, const std::string &channel,
         std::function<void(RedisValue)> handler);
 
     REDIS_CLIENT_DECL void close() noexcept;
@@ -101,11 +103,14 @@ public:
     std::queue<std::function<void(RedisValue)> > handlers;
     std::deque<std::vector<char>> dataWrited;
     std::deque<std::vector<char>> dataQueued;
+
+    std::mutex msgHandlersMutex;
     MsgHandlersMap msgHandlers;
+
     SingleShotHandlersMap singleShotMsgHandlers;
 
     std::function<void(const std::string &)> errorHandler;
-    State state;
+    std::atomic<State> state;
 };
 
 template<size_t size>

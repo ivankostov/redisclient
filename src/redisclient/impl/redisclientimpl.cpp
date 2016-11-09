@@ -55,6 +55,7 @@ void RedisClientImpl::doProcessMessage(RedisValue v)
 {
     if( state == State::Subscribed )
     {
+
         std::vector<RedisValue> result = v.toArray();
         auto resultSize = result.size();
 
@@ -63,7 +64,6 @@ void RedisClientImpl::doProcessMessage(RedisValue v)
             const RedisValue &command   = result[0];
             const RedisValue &queueName = result[(resultSize == 3)?1:2];
             const RedisValue &value     = result[(resultSize == 3)?2:3];
-            const RedisValue &pattern   = (resultSize == 4) ? result[1] : "";
 
             std::string cmd = command.toString();
 
@@ -76,6 +76,7 @@ void RedisClientImpl::doProcessMessage(RedisValue v)
                     singleShotMsgHandlers.erase(it);
                 }
 
+                std::unique_lock<std::mutex> lock(msgHandlersMutex);
                 std::pair<MsgHandlersMap::iterator, MsgHandlersMap::iterator> pair =
                         msgHandlers.equal_range(queueName.toString());
                 for(MsgHandlersMap::iterator handlerIt = pair.first;
@@ -270,7 +271,7 @@ void RedisClientImpl::asyncRead(const boost::system::error_code &ec, const size_
 
         if( result.second == RedisParser::Completed )
         {
-            doProcessMessage(std::move(redisParser.result()));
+            doProcessMessage(redisParser.result());
         }
         else if( result.second == RedisParser::Incompleted )
         {
@@ -334,6 +335,7 @@ size_t RedisClientImpl::subscribe(
         std::deque<RedisBuffer> items{ command, channel };
 
         post(std::bind(&RedisClientImpl::doAsyncCommand, this, makeCommand(items), std::move(handler)));
+        std::unique_lock<std::mutex> lock(msgHandlersMutex);
         msgHandlers.insert(std::make_pair(channel, std::make_pair(subscribeSeq, std::move(msgHandler))));
         state = State::Subscribed;
 
@@ -380,8 +382,8 @@ void RedisClientImpl::singleShotSubscribe(
     }
 }
 
-void RedisClientImpl::unsubscribe(const std::string &command, 
-                                  size_t handleId, 
+void RedisClientImpl::unsubscribe(const std::string &command,
+                                  size_t handleId,
                                   const std::string &channel,
                                   std::function<void(RedisValue)> handler)
 {
@@ -396,20 +398,23 @@ void RedisClientImpl::unsubscribe(const std::string &command,
     if (state == State::Connected ||
         state == State::Subscribed)
     {
-        // Remove subscribe-handler
-        typedef RedisClientImpl::MsgHandlersMap::iterator iterator;
-        std::pair<iterator, iterator> pair = msgHandlers.equal_range(channel);
-
-        for (iterator it = pair.first; it != pair.second;)
         {
-            if (it->second.first == handleId)
-            {
-                msgHandlers.erase(it++);
-            }
-            else
-            {
-                ++it;
-            }
+          std::unique_lock<std::mutex> lock(msgHandlersMutex);
+          // Remove subscribe-handler
+          typedef RedisClientImpl::MsgHandlersMap::iterator iterator;
+          std::pair<iterator, iterator> pair = msgHandlers.equal_range(channel);
+
+          for (iterator it = pair.first; it != pair.second;)
+          {
+              if (it->second.first == handleId)
+              {
+                  msgHandlers.erase(it++);
+              }
+              else
+              {
+                  ++it;
+              }
+          }
         }
 
         std::deque<RedisBuffer> items{ command, channel };

@@ -74,7 +74,7 @@ void RedisAsyncClient::command(const std::string &cmd, std::deque<RedisBuffer> a
         args.emplace_front(cmd);
 
         pimpl->post(std::bind(&RedisClientImpl::doAsyncCommand, pimpl,
-                    std::move(pimpl->makeCommand(args)), std::move(handler)));
+                    pimpl->makeCommand(args), handler));
     }
 }
 
@@ -83,7 +83,7 @@ RedisAsyncClient::Handle RedisAsyncClient::subscribe(
         std::function<void(std::vector<char> msg)> msgHandler,
         std::function<void(RedisValue)> handler)
 {
-    auto handleId = pimpl->subscribe("subscribe", channel, msgHandler, handler);    
+    auto handleId = pimpl->subscribe("subscribe", channel, msgHandler, handler);
     return { handleId , channel };
 }
 
@@ -96,9 +96,9 @@ RedisAsyncClient::Handle RedisAsyncClient::psubscribe(
     return{ handleId , pattern };
 }
 
-void RedisAsyncClient::unsubscribe(const Handle &handle)
+void RedisAsyncClient::unsubscribe(const Handle &handle,std::function<void(RedisValue)> handler)
 {
-    pimpl->unsubscribe("unsubscribe", handle.id, handle.channel, dummyHandler);
+    pimpl->unsubscribe("unsubscribe", handle.id, handle.channel, handler);
 }
 
 void RedisAsyncClient::punsubscribe(const Handle &handle)
