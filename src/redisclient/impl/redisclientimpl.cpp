@@ -415,14 +415,22 @@ void RedisClientImpl::unsubscribe(const std::string &command,
                   ++it;
               }
           }
+
+        if(msgHandlers.find(channel) == msgHandlers.end() )
+        {
+          std::deque<RedisBuffer> items{ command, channel };
+          post(std::bind(&RedisClientImpl::doAsyncCommand, this,
+               makeCommand(items), handler));
         }
+        else
+        {
+          // fake unsubscription.
+          lock.unlock();
+          handler(RedisValue());
+        }
+        } // std::unique_lock<std::mutex> lock(msgHandlersMutex);
 
-        std::deque<RedisBuffer> items{ command, channel };
-
-        // Unsubscribe command for Redis
-        post(std::bind(&RedisClientImpl::doAsyncCommand, this,
-             makeCommand(items), handler));
-    }
+        }
     else
     {
         std::stringstream ss;
