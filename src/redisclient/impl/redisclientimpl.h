@@ -58,6 +58,7 @@ public:
         std::function<void(RedisValue)> handler);
 
     REDIS_CLIENT_DECL void close() noexcept;
+    REDIS_CLIENT_DECL void clearMsgHandlers();
 
     REDIS_CLIENT_DECL State getState() const;
 

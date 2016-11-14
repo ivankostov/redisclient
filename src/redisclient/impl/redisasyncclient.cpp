@@ -61,6 +61,11 @@ void RedisAsyncClient::disconnect()
     pimpl->close();
 }
 
+void RedisAsyncClient::clearMsgHandlers()
+{
+    pimpl->clearMsgHandlers();
+}
+
 void RedisAsyncClient::installErrorHandler(std::function<void(const std::string &)> handler)
 {
     pimpl->errorHandler = std::move(handler);

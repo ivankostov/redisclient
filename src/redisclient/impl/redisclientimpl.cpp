@@ -24,18 +24,33 @@ RedisClientImpl::~RedisClientImpl()
     close();
 }
 
+void RedisClientImpl::clearMsgHandlers()
+{
+  // don't delete objects in msgHandlers direct. Can result in double deletion (depending on messageHandler)
+  const decltype(msgHandlers) tempMap = [&]{
+    decltype(msgHandlers) tmp;
+    std::unique_lock<std::mutex> lock(msgHandlersMutex);
+    tmp.swap(msgHandlers);
+    return tmp;
+  }();
+}
+
+
 void RedisClientImpl::close() noexcept
 {
     if( state != State::Closed )
     {
+        state = State::Closed;
         boost::system::error_code ignored_ec;
 
-        msgHandlers.clear();
+        clearMsgHandlers();
 
         socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
         socket.close(ignored_ec);
-
-        state = State::Closed;
+    }
+    else
+    {
+      //... ???
     }
 }
 
@@ -398,6 +413,7 @@ void RedisClientImpl::unsubscribe(const std::string &command,
     if (state == State::Connected ||
         state == State::Subscribed)
     {
+        bool shallUnsubscribe = true;
         {
           std::unique_lock<std::mutex> lock(msgHandlersMutex);
           // Remove subscribe-handler
@@ -412,11 +428,13 @@ void RedisClientImpl::unsubscribe(const std::string &command,
               }
               else
               {
+                  shallUnsubscribe = false;
                   ++it;
               }
           }
+        } // std::unique_lock<std::mutex> lock(msgHandlersMutex);
 
-        if(msgHandlers.find(channel) == msgHandlers.end() )
+        if( shallUnsubscribe )
         {
           std::deque<RedisBuffer> items{ command, channel };
           post(std::bind(&RedisClientImpl::doAsyncCommand, this,
@@ -424,11 +442,8 @@ void RedisClientImpl::unsubscribe(const std::string &command,
         }
         else
         {
-          // fake unsubscription.
-          lock.unlock();
           handler(RedisValue());
         }
-        } // std::unique_lock<std::mutex> lock(msgHandlersMutex);
 
         }
     else

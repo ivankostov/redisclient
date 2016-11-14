@@ -73,7 +73,8 @@ public:
 
     // disconnect from redis and clear command queue
     REDIS_CLIENT_DECL void disconnect();
-
+    // clear command queue
+    REDIS_CLIENT_DECL void clearMsgHandlers();
     // Set custom error handler.
     REDIS_CLIENT_DECL void installErrorHandler(
             std::function<void(const std::string &)> handler);
